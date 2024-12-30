@@ -23,7 +23,8 @@ def create_expenses_table():
             cursor.execute('''CREATE TABLE IF NOT EXISTS expenses (
                                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                                 name TEXT NOT NULL,
-                                amount REAL NOT NULL)''')
+                                amount REAL NOT NULL,
+                                created_at TEXT NOT NULL)''')  # Added created_at column
             conn.commit()
             conn.close()
         except sqlite3.Error as e:
@@ -36,8 +37,12 @@ def index():
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM expenses")
         expenses = cursor.fetchall()
+        
+        # Calculate the total cost
+        total_cost = sum(expense['amount'] for expense in expenses)
+        
         conn.close()
-        return render_template('index.html', expenses=expenses)
+        return render_template('index.html', expenses=expenses, total_cost=total_cost)
     else:
         return "Database connection error", 500
 
@@ -47,11 +52,16 @@ def add_expense():
         expense_name = request.form['expense_name']
         expense_amount = request.form['expense_amount']
         
+        # Get current date and time
+        from datetime import datetime
+        created_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        
         conn = get_db_connection()
         if conn:
             try:
                 cursor = conn.cursor()
-                cursor.execute("INSERT INTO expenses (name, amount) VALUES (?, ?)", (expense_name, expense_amount))
+                cursor.execute("INSERT INTO expenses (name, amount, created_at) VALUES (?, ?, ?)", 
+                               (expense_name, expense_amount, created_at))
                 conn.commit()
                 conn.close()
                 return redirect('/')
@@ -62,6 +72,22 @@ def add_expense():
             return "Database connection error", 500
     
     return render_template('add_expense.html')
+
+@app.route('/delete_expense/<int:expense_id>', methods=['POST'])
+def delete_expense(expense_id):
+    conn = get_db_connection()
+    if conn:
+        try:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM expenses WHERE id = ?", (expense_id,))
+            conn.commit()
+            conn.close()
+            return redirect('/')
+        except sqlite3.Error as e:
+            print(f"Error deleting expense: {e}")
+            return "Error deleting expense", 500
+    else:
+        return "Database connection error", 500
 
 if __name__ == "__main__":
     create_expenses_table()  # Ensure the table exists
