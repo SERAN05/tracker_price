@@ -1,48 +1,40 @@
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect
 import sqlite3
-import os
 
 app = Flask(__name__)
 
-# Database setup
-DATABASE = 'expenses.db'
-
-def get_db():
-    conn = sqlite3.connect(DATABASE)
+# Database connection
+def get_db_connection():
+    conn = sqlite3.connect('expenses.db')
     conn.row_factory = sqlite3.Row
     return conn
 
 @app.route('/')
 def index():
-    conn = get_db()
+    conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM expenses")
     expenses = cursor.fetchall()
     conn.close()
     return render_template('index.html', expenses=expenses)
 
-@app.route('/add', methods=['POST'])
+@app.route('/add_expense', methods=['POST', 'GET'])
 def add_expense():
     if request.method == 'POST':
-        name = request.form['name']
-        cost = request.form['cost']
-        conn = get_db()
+        # Get the form data
+        expense_name = request.form['expense_name']
+        expense_amount = request.form['expense_amount']
+        
+        # Add expense to the database
+        conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("INSERT INTO expenses (name, cost) VALUES (?, ?)", (name, cost))
+        cursor.execute("INSERT INTO expenses (name, amount) VALUES (?, ?)", (expense_name, expense_amount))
         conn.commit()
         conn.close()
-        return redirect(url_for('index'))
-
-@app.route('/delete/<int:id>', methods=['GET'])
-def delete_expense(id):
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM expenses WHERE id = ?", (id,))
-    conn.commit()
-    conn.close()
-    return redirect(url_for('index'))
+        
+        return redirect('/')
+    
+    return render_template('add_expense.html')
 
 if __name__ == "__main__":
-    # Use the PORT environment variable (default to 5000 if not set)
-    port = int(os.environ.get("PORT", 5000))  # Default to 5000 if PORT is not set
-    app.run(host="0.0.0.0", port=port)
+    app.run(debug=True, port=5000)
